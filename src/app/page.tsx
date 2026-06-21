@@ -64,9 +64,7 @@ function Sun() {
     <mesh><sphereGeometry args={[2.3, 96, 72]} /><shaderMaterial uniforms={plasma} vertexShader={sunVertexShader} fragmentShader={sunFragmentShader} /></mesh>
     <mesh ref={corona} scale={1.13}><sphereGeometry args={[2.3, 64, 48]} /><meshBasicMaterial color="#ff6b1a" transparent opacity={.13} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
     <mesh ref={halo} scale={1.42}><sphereGeometry args={[2.3, 64, 48]} /><meshBasicMaterial color="#ff9a31" transparent opacity={.035} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
-    <SolarFlare position={[.35, .7, .05]} rotation={[0, 0, 0]} phase={0} />
-    <SolarFlare position={[-.42, -.8, -.08]} rotation={[0, 0, 1.8]} phase={2.1} />
-    <SolarFlare position={[1.1, -.25, .12]} rotation={[0, 0, 3.7]} phase={4.3} />
+    <mesh scale={1.28}><sphereGeometry args={[2.3, 96, 72]} /><shaderMaterial uniforms={plasma} vertexShader={coronaVertexShader} fragmentShader={coronaFragmentShader} transparent side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
     <pointLight color="#ffb15d" intensity={220} distance={42} decay={1.5} />
   </group>;
 }
@@ -109,17 +107,34 @@ const sunFragmentShader = `
   }
 `;
 
-function SolarFlare({ position, rotation, phase }: { position: [number, number, number]; rotation: [number, number, number]; phase: number }) {
-  const flare = useRef<THREE.Group>(null);
-  useFrame(({ clock }) => {
-    const surge = 1 + Math.max(0, Math.sin(clock.getElapsedTime() * 1.3 + phase)) * .28;
-    if (flare.current) flare.current.scale.setScalar(surge);
-  });
-  return <group ref={flare} position={position} rotation={rotation}>
-    <mesh><torusGeometry args={[2.48, .038, 8, 42, .72]} /><meshBasicMaterial color="#ffd37a" transparent opacity={.88} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
-    <mesh scale={1.06}><torusGeometry args={[2.48, .015, 8, 42, .72]} /><meshBasicMaterial color="#ff6b2c" transparent opacity={.8} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
-  </group>;
-}
+const coronaVertexShader = `
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  void main() {
+    vNormal = normalize(normalMatrix * normal);
+    vPosition = normalize(position);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const coronaFragmentShader = `
+  uniform float uTime;
+  varying vec3 vNormal;
+  varying vec3 vPosition;
+  float hash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453123); }
+  float noise(vec3 p) {
+    vec3 i=floor(p); vec3 f=fract(p); f=f*f*(3.-2.*f);
+    return mix(mix(mix(hash(i),hash(i+vec3(1.,0.,0.)),f.x),mix(hash(i+vec3(0.,1.,0.)),hash(i+vec3(1.,1.,0.)),f.x),f.y),mix(mix(hash(i+vec3(0.,0.,1.)),hash(i+vec3(1.,0.,1.)),f.x),mix(hash(i+vec3(0.,1.,1.)),hash(i+vec3(1.,1.,1.)),f.x),f.y),f.z);
+  }
+  float fbm(vec3 p) { float value=0.; float amount=.6; for(int i=0;i<4;i++){value+=amount*noise(p);p=p*2.1+7.4;amount*=.5;} return value; }
+  void main() {
+    float edge=pow(1.-abs(dot(normalize(vNormal),vec3(0.,0.,1.))),2.);
+    float turbulence=fbm(vPosition*5.2+vec3(uTime*.045,-uTime*.03,0.));
+    float wisps=smoothstep(.42,.82,turbulence)*edge;
+    vec3 color=mix(vec3(1.,.16,.005),vec3(1.,.76,.16),turbulence);
+    gl_FragColor=vec4(color,wisps*.58);
+  }
+`;
 
 function Moon({ moon, planet, onSelect }: { moon: Moon; planet: Planet; onSelect: (destination: Destination) => void }) {
   const texture = useTexture(moon.texture);
@@ -169,8 +184,10 @@ function CameraFlight({ target }: { target: Destination }) {
         focus.current.add(new THREE.Vector3(Math.cos(target.moon.angle) * target.moon.distance, 0, -Math.sin(target.moon.angle) * target.moon.distance));
       }
       const size = target.kind === "moon" ? target.moon.size : planet.size;
+      const viewingDistance = Math.max(2, size * 7);
+      const sunward = focus.current.clone().normalize().multiplyScalar(-viewingDistance);
       flightFocus.current.copy(focus.current);
-      flightPosition.current.copy(focus.current).add(new THREE.Vector3(Math.max(2, size * 7), 1.7, Math.max(2, size * 7)));
+      flightPosition.current.copy(focus.current).add(sunward).add(new THREE.Vector3(0, viewingDistance * .26, 0));
       lastTarget.current = target;
       isFlying.current = true;
     }
@@ -182,7 +199,7 @@ function CameraFlight({ target }: { target: Destination }) {
     }
     controls.current?.update();
   });
-  return <OrbitControls ref={controls} enableDamping dampingFactor={.07} minDistance={2.2} maxDistance={45} />;
+  return <OrbitControls ref={controls} enableDamping dampingFactor={.07} enablePan zoomToCursor minDistance={.15} maxDistance={70} />;
 }
 
 function Nebula() {
@@ -194,10 +211,11 @@ function Nebula() {
 }
 
 function SolarSystem({ selected, onSelect }: { selected: Destination; onSelect: (destination: Destination) => void }) {
-  return <Canvas camera={{ position: [11, 8, 22], fov: 48 }} dpr={[1, 1.75]} gl={{ antialias: true }}>
+  return <Canvas camera={{ position: [11, 8, 22], fov: 48, near: .01 }} dpr={[1, 1.75]} gl={{ antialias: true }}>
     <color attach="background" args={["#02030b"]} />
     <fog attach="fog" args={["#02030b", 25, 58]} />
-    <ambientLight intensity={.12} />
+    <ambientLight intensity={.32} color="#9bb8ff" />
+    <hemisphereLight args={["#b7d1ff", "#162342", .32]} />
     <Stars radius={80} depth={45} count={4000} factor={3} saturation={0} fade speed={0} />
     <Dust />
     <Nebula />
