@@ -1,10 +1,9 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Stars, useGLTF, useTexture } from "@react-three/drei";
-import { Suspense, useMemo, useRef, useState } from "react";
+import { Line, OrbitControls, PointerLockControls, Stars, useGLTF, useTexture } from "@react-three/drei";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import styles from "./page.module.css";
 
 type Planet = {
@@ -24,14 +23,14 @@ type Moon = { name: string; distance: number; size: number; color: string; speed
 type Destination = { kind: "planet"; planet: Planet } | { kind: "moon"; planet: Planet; moon: Moon };
 
 const planets: Planet[] = [
-  { name: "Mercury", color: "#a69a8c", size: .28, distance: 4.2, speed: .24, angle: .2, detail: "The swiftest world, baked by the Sun.", texture: "/textures/mercury.jpg" },
-  { name: "Venus", color: "#d8a85d", size: .48, distance: 5.7, speed: .18, angle: 2.45, detail: "A world wrapped in golden clouds.", texture: "/textures/venus.jpg" },
-  { name: "Earth", color: "#3987e7", size: .55, distance: 7.35, speed: .14, angle: .95, detail: "Our blue home, with one bright companion.", moons: [{ name: "Moon", distance: 1.1, size: .14, color: "#c9c5ba", speed: .32, angle: 1.3, texture: "/textures/moon.jpg" }] },
-  { name: "Mars", color: "#c45b3e", size: .38, distance: 8.9, speed: .11, angle: 4.1, detail: "The rust-red frontier.", texture: "/textures/mars.jpg", moons: [{ name: "Phobos", distance: .72, size: .07, color: "#9e8879", speed: .44, angle: .6, texture: "/textures/phobos.jpg" }] },
-  { name: "Jupiter", color: "#d69b70", size: 1.15, distance: 11.7, speed: .06, angle: 2.9, detail: "The giant planet and its stormy bands.", texture: "/textures/jupiter.jpg", moons: [{ name: "Europa", distance: 1.75, size: .12, color: "#d8ccb2", speed: .28, angle: .8, texture: "/textures/europa.jpg" }, { name: "Ganymede", distance: 2.15, size: .18, color: "#a99b84", speed: .2, angle: 3.6, texture: "/textures/ganymede.jpg" }] },
-  { name: "Saturn", color: "#e1c082", size: .95, distance: 15.3, speed: .04, angle: 5.2, detail: "The ringed jewel of the solar system.", texture: "/textures/saturn.jpg", ring: true, moons: [{ name: "Titan", distance: 1.85, size: .16, color: "#c7985a", speed: .19, angle: 2.1, texture: "/textures/titan.jpg" }] },
-  { name: "Uranus", color: "#82d0db", size: .7, distance: 18.6, speed: .03, angle: 1.75, detail: "A cool blue ice giant, tilted sideways.", texture: "/textures/uranus.jpg" },
-  { name: "Neptune", color: "#417bd8", size: .68, distance: 21.7, speed: .02, angle: 3.85, detail: "A deep-blue world at the edge of our tour.", texture: "/textures/neptune.jpg" },
+  { name: "Mercury", color: "#a69a8c", size: .38, distance: 24, speed: .24, angle: .2, detail: "The swiftest world, baked by the Sun.", texture: "/textures/mercury.jpg" },
+  { name: "Venus", color: "#d8a85d", size: .62, distance: 38, speed: .18, angle: 2.45, detail: "A world wrapped in golden clouds.", texture: "/textures/venus.jpg" },
+  { name: "Earth", color: "#3987e7", size: .72, distance: 55, speed: .14, angle: .95, detail: "Our blue home, with one bright companion.", moons: [{ name: "Moon", distance: 1.4, size: .18, color: "#c9c5ba", speed: .32, angle: 1.3, texture: "/textures/moon.jpg" }] },
+  { name: "Mars", color: "#c45b3e", size: .5, distance: 72, speed: .11, angle: 4.1, detail: "The rust-red frontier.", texture: "/textures/mars.jpg", moons: [{ name: "Phobos", distance: .9, size: .09, color: "#9e8879", speed: .44, angle: .6, texture: "/textures/phobos.jpg" }] },
+  { name: "Jupiter", color: "#d69b70", size: 1.85, distance: 98, speed: .06, angle: 2.9, detail: "The giant planet and its stormy bands.", texture: "/textures/jupiter.jpg", moons: [{ name: "Europa", distance: 2.65, size: .16, color: "#d8ccb2", speed: .28, angle: .8, texture: "/textures/europa.jpg" }, { name: "Ganymede", distance: 3.25, size: .24, color: "#a99b84", speed: .2, angle: 3.6, texture: "/textures/ganymede.jpg" }] },
+  { name: "Saturn", color: "#e1c082", size: 1.55, distance: 128, speed: .04, angle: 5.2, detail: "The ringed jewel of the solar system.", texture: "/textures/saturn.jpg", ring: true, moons: [{ name: "Titan", distance: 2.75, size: .22, color: "#c7985a", speed: .19, angle: 2.1, texture: "/textures/titan.jpg" }] },
+  { name: "Uranus", color: "#82d0db", size: 1.1, distance: 158, speed: .03, angle: 1.75, detail: "A cool blue ice giant, tilted sideways.", texture: "/textures/uranus.jpg" },
+  { name: "Neptune", color: "#417bd8", size: 1.08, distance: 190, speed: .02, angle: 3.85, detail: "A deep-blue world at the edge of our tour.", texture: "/textures/neptune.jpg" },
 ];
 
 function Dust() {
@@ -65,7 +64,7 @@ function Sun() {
     <mesh ref={corona} scale={1.13}><sphereGeometry args={[2.3, 64, 48]} /><meshBasicMaterial color="#ff6b1a" transparent opacity={.13} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
     <mesh ref={halo} scale={1.42}><sphereGeometry args={[2.3, 64, 48]} /><meshBasicMaterial color="#ff9a31" transparent opacity={.035} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
     <mesh scale={1.28}><sphereGeometry args={[2.3, 96, 72]} /><shaderMaterial uniforms={plasma} vertexShader={coronaVertexShader} fragmentShader={coronaFragmentShader} transparent side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
-    <pointLight color="#ffb15d" intensity={220} distance={42} decay={1.5} />
+    <pointLight color="#ffb15d" intensity={850} distance={260} decay={1.45} />
   </group>;
 }
 
@@ -168,15 +167,21 @@ function PlanetBody({ planet, selected, onSelect }: { planet: Planet; selected: 
   </group>;
 }
 
-function CameraFlight({ target }: { target: Destination }) {
+function ShipControls({ target }: { target: Destination }) {
   const { camera } = useThree();
-  const controls = useRef<OrbitControlsImpl>(null);
+  const keys = useRef(new Set<string>());
   const flightPosition = useRef(new THREE.Vector3());
   const flightFocus = useRef(new THREE.Vector3());
   const focus = useRef(new THREE.Vector3());
   const lastTarget = useRef(target);
   const isFlying = useRef(false);
-  useFrame(() => {
+  useEffect(() => {
+    const down = (event: KeyboardEvent) => { if (["w", "a", "s", "d", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Shift"].includes(event.key)) { keys.current.add(event.key); event.preventDefault(); } };
+    const up = (event: KeyboardEvent) => keys.current.delete(event.key);
+    window.addEventListener("keydown", down); window.addEventListener("keyup", up);
+    return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
+  }, []);
+  useFrame((_, delta) => {
     if (target !== lastTarget.current) {
       const planet = target.planet;
       focus.current.set(Math.cos(planet.angle) * planet.distance, 0, Math.sin(planet.angle) * planet.distance);
@@ -184,7 +189,7 @@ function CameraFlight({ target }: { target: Destination }) {
         focus.current.add(new THREE.Vector3(Math.cos(target.moon.angle) * target.moon.distance, 0, -Math.sin(target.moon.angle) * target.moon.distance));
       }
       const size = target.kind === "moon" ? target.moon.size : planet.size;
-      const viewingDistance = Math.max(2, size * 7);
+      const viewingDistance = Math.max(3, size * 8);
       const sunward = focus.current.clone().normalize().multiplyScalar(-viewingDistance);
       flightFocus.current.copy(focus.current);
       flightPosition.current.copy(focus.current).add(sunward).add(new THREE.Vector3(0, viewingDistance * .26, 0));
@@ -193,13 +198,36 @@ function CameraFlight({ target }: { target: Destination }) {
     }
     if (isFlying.current) {
       camera.position.lerp(flightPosition.current, .045);
-      controls.current?.target.lerp(flightFocus.current, .045);
-      const targetArrived = controls.current ? controls.current.target.distanceTo(flightFocus.current) < .03 : false;
-      if (camera.position.distanceTo(flightPosition.current) < .03 && targetArrived) isFlying.current = false;
+      const desiredRotation = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(camera.position, flightFocus.current, camera.up));
+      camera.quaternion.slerp(desiredRotation, .045);
+      if (camera.position.distanceTo(flightPosition.current) < .05) isFlying.current = false;
+      return;
     }
-    controls.current?.update();
+    const speed = (keys.current.has("Shift") ? 48 : 15) * delta;
+    const forward = new THREE.Vector3();
+    camera.getWorldDirection(forward); forward.normalize();
+    const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
+    if (keys.current.has("w") || keys.current.has("ArrowUp")) camera.position.addScaledVector(forward, speed);
+    if (keys.current.has("s") || keys.current.has("ArrowDown")) camera.position.addScaledVector(forward, -speed);
+    if (keys.current.has("d") || keys.current.has("ArrowRight")) camera.position.addScaledVector(right, speed);
+    if (keys.current.has("a") || keys.current.has("ArrowLeft")) camera.position.addScaledVector(right, -speed);
   });
-  return <OrbitControls ref={controls} enableDamping dampingFactor={.07} enablePan zoomToCursor minDistance={.15} maxDistance={70} />;
+  return <PointerLockControls />;
+}
+
+function MapControls() {
+  const { camera } = useThree();
+  useEffect(() => { camera.position.set(0, 100, 245); camera.lookAt(0, 0, 0); }, [camera]);
+  return <OrbitControls target={[0, 0, 0]} enableDamping minDistance={25} maxDistance={480} />;
+}
+
+function NavigationTrails() {
+  return <group>
+    {planets.map((planet) => {
+      const end: [number, number, number] = [Math.cos(planet.angle) * planet.distance, 0, Math.sin(planet.angle) * planet.distance];
+      return <Line key={planet.name} points={[[0, 0, 0], end]} color="#4a81c7" transparent opacity={.28} dashed dashSize={1.5} gapSize={1.2} lineWidth={.5} />;
+    })}
+  </group>;
 }
 
 function Nebula() {
@@ -210,8 +238,8 @@ function Nebula() {
   </group>;
 }
 
-function SolarSystem({ selected, onSelect }: { selected: Destination; onSelect: (destination: Destination) => void }) {
-  return <Canvas camera={{ position: [11, 8, 22], fov: 48, near: .01 }} dpr={[1, 1.75]} gl={{ antialias: true }}>
+function SolarSystem({ selected, onSelect, mode }: { selected: Destination; onSelect: (destination: Destination) => void; mode: "ship" | "map" }) {
+  return <Canvas camera={{ position: [0, 3, 16], fov: 62, near: .01 }} dpr={[1, 1.75]} gl={{ antialias: true }}>
     <color attach="background" args={["#02030b"]} />
     <fog attach="fog" args={["#02030b", 25, 58]} />
     <ambientLight intensity={.32} color="#9bb8ff" />
@@ -220,8 +248,9 @@ function SolarSystem({ selected, onSelect }: { selected: Destination; onSelect: 
     <Dust />
     <Nebula />
     <Sun />
+    <NavigationTrails />
     <Suspense fallback={null}>{planets.map((planet) => <PlanetBody key={planet.name} planet={planet} selected={selected.planet.name === planet.name} onSelect={onSelect} />)}</Suspense>
-    <CameraFlight target={selected} />
+    {mode === "ship" ? <ShipControls target={selected} /> : <MapControls />}
   </Canvas>;
 }
 
@@ -229,12 +258,25 @@ useGLTF.preload("/models/nasa-earth.glb");
 
 export default function Home() {
   const [selected, setSelected] = useState<Destination>({ kind: "planet", planet: planets[2] });
+  const [mode, setMode] = useState<"ship" | "map">("ship");
   const selectedName = selected.kind === "moon" ? selected.moon.name : selected.planet.name;
   const selectedDetail = selected.kind === "moon" ? `${selected.moon.name} travels around ${selected.planet.name}.` : selected.planet.detail;
   return <main className={styles.page}>
-    <section className={styles.scene}><SolarSystem selected={selected} onSelect={setSelected} /></section>
+    <section className={styles.scene}><SolarSystem selected={selected} onSelect={setSelected} mode={mode} /></section>
     <header className={styles.topbar}><div className={styles.brand}><span className={styles.brandMark}>✦</span><div><b>ORBITAL EXPLORER</b><small>LOCAL STAR SYSTEM</small></div></div><div className={styles.coordinates}>LIVE NAVIGATION<br />DRAG TO ORBIT · SCROLL TO ZOOM</div></header>
-    <aside className={styles.panel}><div className={styles.eyebrow}>DESTINATION SELECTED</div><h1>{selectedName}</h1><p>{selectedDetail}</p><div className={styles.planetList}>{planets.map((planet) => <button key={planet.name} className={`${styles.planetButton} ${selected.planet.name === planet.name ? styles.active : ""}`} style={{ "--planet-color": planet.color } as React.CSSProperties} onClick={() => setSelected({ kind: "planet", planet })}>{planet.name}</button>)}</div></aside>
-    <div className={styles.hint}><b>Click any planet or moon</b> to begin a flight<br />Drag to orbit · Scroll to zoom</div>
+    <aside className={styles.panel}><div className={styles.eyebrow}>DESTINATION SELECTED</div><h1>{selectedName}</h1><p>{selectedDetail}</p><div className={styles.planetList}>{planets.map((planet) => <button key={planet.name} className={`${styles.planetButton} ${selected.planet.name === planet.name ? styles.active : ""}`} style={{ "--planet-color": planet.color } as React.CSSProperties} onClick={() => { setMode("ship"); setSelected({ kind: "planet", planet }); }}>{planet.name}</button>)}</div><div className={styles.controls}><button onClick={() => setMode(mode === "ship" ? "map" : "ship")}>{mode === "ship" ? "VIEW SYSTEM MAP" : "ENTER SHIP"}</button><button onClick={() => { setMode("ship"); setSelected({ kind: "planet", planet: planets[2] }); }}>RETURN TO EARTH</button></div></aside>
+    <div className={styles.hint}>{mode === "ship" ? <><b>Click canvas to enter cockpit</b><br />WASD / ARROWS: FLY · SHIFT: BOOST</> : <><b>SYSTEM MAP</b><br />DRAG TO ORBIT · SCROLL TO ZOOM</>}</div>
+    {mode === "ship" && <div className={styles.cockpit} aria-hidden="true">
+      <div className={styles.canopyTop} /><div className={styles.canopyLeft} /><div className={styles.canopyRight} />
+      <div className={styles.flightReadout}><span>SHIP // EXPLORER-01</span><b>CRUISE MODE</b><span>DEST: {selectedName.toUpperCase()}</span></div>
+      <div className={styles.crosshair}><i /><i /><i /><i /><em>+</em></div>
+      <div className={styles.targetBox}><span>◜</span><span>◝</span><span>◟</span><span>◞</span><b>TARGET LOCK</b></div>
+      <div className={styles.console}>
+        <div className={styles.gauge}><div><b>72</b><small>THRUST</small></div></div>
+        <div className={styles.radar}><i /><i /><i /><b>◉</b><small>NAV RADAR</small></div>
+        <div className={styles.gauge}><div><b>98</b><small>HULL</small></div></div>
+      </div>
+      <div className={styles.cockpitLeft}>NAV SYS<br /><b>ONLINE</b></div><div className={styles.cockpitRight}>DRIVE<br /><b>READY</b></div>
+    </div>}
   </main>;
 }
