@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Line, OrbitControls, PointerLockControls, Stars, useGLTF, useTexture } from "@react-three/drei";
+import { Billboard, Line, OrbitControls, PointerLockControls, Stars, Text, useGLTF, useTexture } from "@react-three/drei";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import styles from "./page.module.css";
@@ -168,14 +168,10 @@ function PlanetBody({ planet, selected, onSelect }: { planet: Planet; selected: 
   </group>;
 }
 
-function ShipControls({ target }: { target: Destination }) {
+function ShipControls({ target, onRange }: { target: Destination; onRange: (range: number) => void }) {
   const { camera } = useThree();
   const keys = useRef(new Set<string>());
-  const flightPosition = useRef(new THREE.Vector3());
-  const flightFocus = useRef(new THREE.Vector3());
-  const focus = useRef(new THREE.Vector3());
-  const lastTarget = useRef(target);
-  const isFlying = useRef(false);
+  const lastRangeUpdate = useRef(0);
   useEffect(() => {
     const down = (event: KeyboardEvent) => { if (["w", "a", "s", "d", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "Shift"].includes(event.key)) { keys.current.add(event.key); event.preventDefault(); } };
     const up = (event: KeyboardEvent) => keys.current.delete(event.key);
@@ -183,27 +179,10 @@ function ShipControls({ target }: { target: Destination }) {
     return () => { window.removeEventListener("keydown", down); window.removeEventListener("keyup", up); };
   }, []);
   useFrame((_, delta) => {
-    if (target !== lastTarget.current) {
-      const planet = target.planet;
-      focus.current.set(Math.cos(planet.angle) * planet.distance, 0, Math.sin(planet.angle) * planet.distance);
-      if (target.kind === "moon") {
-        focus.current.add(new THREE.Vector3(Math.cos(target.moon.angle) * target.moon.distance, 0, -Math.sin(target.moon.angle) * target.moon.distance));
-      }
-      const size = target.kind === "moon" ? target.moon.size : planet.size;
-      const viewingDistance = Math.max(3, size * 8);
-      const sunward = focus.current.clone().normalize().multiplyScalar(-viewingDistance);
-      flightFocus.current.copy(focus.current);
-      flightPosition.current.copy(focus.current).add(sunward).add(new THREE.Vector3(0, viewingDistance * .26, 0));
-      lastTarget.current = target;
-      isFlying.current = true;
-    }
-    if (isFlying.current) {
-      camera.position.lerp(flightPosition.current, .012);
-      const desiredRotation = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(camera.position, flightFocus.current, camera.up));
-      camera.quaternion.slerp(desiredRotation, .018);
-      if (camera.position.distanceTo(flightPosition.current) < .05) isFlying.current = false;
-      return;
-    }
+    const targetPosition = new THREE.Vector3(Math.cos(target.planet.angle) * target.planet.distance, 0, Math.sin(target.planet.angle) * target.planet.distance);
+    if (target.kind === "moon") targetPosition.add(new THREE.Vector3(Math.cos(target.moon.angle) * target.moon.distance, 0, -Math.sin(target.moon.angle) * target.moon.distance));
+    if (lastRangeUpdate.current > .15) { onRange(camera.position.distanceTo(targetPosition)); lastRangeUpdate.current = 0; }
+    lastRangeUpdate.current += delta;
     const speed = (keys.current.has("Shift") ? 18 : 5) * delta;
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward); forward.normalize();
@@ -214,6 +193,22 @@ function ShipControls({ target }: { target: Destination }) {
     if (keys.current.has("a") || keys.current.has("ArrowLeft")) camera.position.addScaledVector(right, -speed);
   });
   return <PointerLockControls />;
+}
+
+function GuidanceTrail({ destination }: { destination: Destination }) {
+  const { camera } = useThree();
+  const geometry = useMemo(() => new THREE.BufferGeometry().setAttribute("position", new THREE.BufferAttribute(new Float32Array(6), 3)), []);
+  const line = useMemo(() => new THREE.Line(geometry, new THREE.LineDashedMaterial({ color: "#85cbff", transparent: true, opacity: .38, dashSize: 1.6, gapSize: 1.1, depthWrite: false })), [geometry]);
+  useFrame(() => {
+    const target = new THREE.Vector3(Math.cos(destination.planet.angle) * destination.planet.distance, 0, Math.sin(destination.planet.angle) * destination.planet.distance);
+    if (destination.kind === "moon") target.add(new THREE.Vector3(Math.cos(destination.moon.angle) * destination.moon.distance, 0, -Math.sin(destination.moon.angle) * destination.moon.distance));
+    const positions = geometry.getAttribute("position") as THREE.BufferAttribute;
+    positions.setXYZ(0, camera.position.x, camera.position.y, camera.position.z);
+    positions.setXYZ(1, target.x, target.y, target.z);
+    positions.needsUpdate = true;
+    line.computeLineDistances();
+  });
+  return <primitive object={line} />;
 }
 
 function MapControls() {
@@ -228,6 +223,32 @@ function NavigationTrails() {
       const end: [number, number, number] = [Math.cos(planet.angle) * planet.distance, 0, Math.sin(planet.angle) * planet.distance];
       return <Line key={planet.name} points={[[0, 0, 0], end]} color="#4a81c7" transparent opacity={.28} dashed dashSize={1.5} gapSize={1.2} lineWidth={.5} />;
     })}
+  </group>;
+}
+
+function WorldIntel({ destination }: { destination: Destination }) {
+  const { camera } = useThree();
+  const card = useRef<THREE.Group>(null);
+  const planet = destination.planet;
+  const name = destination.kind === "moon" ? destination.moon.name : planet.name;
+  const fact = destination.kind === "moon" ? `${destination.moon.name} orbits ${planet.name}` : planet.fact;
+  useFrame(() => {
+    const target = new THREE.Vector3(Math.cos(planet.angle) * planet.distance, 0, Math.sin(planet.angle) * planet.distance);
+    if (destination.kind === "moon") target.add(new THREE.Vector3(Math.cos(destination.moon.angle) * destination.moon.distance, 0, -Math.sin(destination.moon.angle) * destination.moon.distance));
+    const distance = camera.position.distanceTo(target);
+    const cameraFacing = camera.position.clone().sub(target).normalize();
+    const hologramPosition = target.clone().addScaledVector(cameraFacing, planet.size + .65).add(new THREE.Vector3(0, planet.size + 1.1, 0));
+    const scale = THREE.MathUtils.clamp(distance * .045, 1, 12);
+    card.current?.position.copy(hologramPosition);
+    card.current?.scale.setScalar(scale);
+  });
+  return <group ref={card} renderOrder={10}>
+    <Billboard follow>
+      <mesh position={[0, 0, -.02]} renderOrder={10}><planeGeometry args={[7.4, 2.15]} /><meshBasicMaterial color="#07142b" transparent opacity={.78} side={THREE.DoubleSide} depthTest={false} /></mesh>
+      <mesh position={[0, .92, 0]} renderOrder={11}><planeGeometry args={[7.4, .035]} /><meshBasicMaterial color="#73c7ff" transparent opacity={.95} depthTest={false} /></mesh>
+      <Text position={[0, .42, 0]} renderOrder={12} fontSize={.46} color="#e8f8ff" anchorX="center" anchorY="middle" letterSpacing={.1} material-depthTest={false}>{name.toUpperCase()}</Text>
+      <Text position={[0, -.35, 0]} renderOrder={12} fontSize={.18} maxWidth={6.3} lineHeight={1.35} color="#a6c8ee" anchorX="center" anchorY="middle" material-depthTest={false}>{fact}</Text>
+    </Billboard>
   </group>;
 }
 
@@ -273,7 +294,7 @@ function ShipHeadlight() {
   return <pointLight ref={light} color="#cce8ff" intensity={42} distance={65} decay={1.35} />;
 }
 
-function SolarSystem({ selected, onSelect, mode }: { selected: Destination; onSelect: (destination: Destination) => void; mode: "ship" | "map" }) {
+function SolarSystem({ selected, onSelect, mode, onRange }: { selected: Destination; onSelect: (destination: Destination) => void; mode: "ship" | "map"; onRange: (range: number) => void }) {
   return <Canvas camera={{ position: [0, 3, 16], fov: 62, near: .01 }} dpr={[1, 1.75]} gl={{ antialias: true }}>
     <color attach="background" args={["#02030b"]} />
     <fog attach="fog" args={["#02030b", 80, 470]} />
@@ -287,7 +308,8 @@ function SolarSystem({ selected, onSelect, mode }: { selected: Destination; onSe
     <Sun />
     <NavigationTrails />
     <Suspense fallback={null}>{planets.map((planet) => <PlanetBody key={planet.name} planet={planet} selected={selected.planet.name === planet.name} onSelect={onSelect} />)}</Suspense>
-    {mode === "ship" ? <><ShipHeadlight /><ShipControls target={selected} /></> : <MapControls />}
+    <WorldIntel destination={selected} />
+    {mode === "ship" ? <><ShipHeadlight /><GuidanceTrail destination={selected} /><ShipControls target={selected} onRange={onRange} /></> : <MapControls />}
   </Canvas>;
 }
 
@@ -296,18 +318,19 @@ useGLTF.preload("/models/nasa-earth.glb");
 export default function Home() {
   const [selected, setSelected] = useState<Destination>({ kind: "planet", planet: planets[2] });
   const [mode, setMode] = useState<"ship" | "map">("ship");
+  const [range, setRange] = useState(0);
   const selectedName = selected.kind === "moon" ? selected.moon.name : selected.planet.name;
   const selectedDetail = selected.kind === "moon" ? `${selected.moon.name} travels around ${selected.planet.name}.` : selected.planet.detail;
   const selectedFact = selected.kind === "moon" ? `${selected.moon.name} is currently in orbit around ${selected.planet.name}.` : selected.planet.fact;
   return <main className={styles.page}>
-    <section className={styles.scene}><SolarSystem selected={selected} onSelect={setSelected} mode={mode} /></section>
+    <section className={styles.scene}><SolarSystem selected={selected} onSelect={setSelected} mode={mode} onRange={setRange} /></section>
     <header className={styles.topbar}><div className={styles.brand}><span className={styles.brandMark}>✦</span><div><b>ORBITAL EXPLORER</b><small>LOCAL STAR SYSTEM</small></div></div><div className={styles.coordinates}>LIVE NAVIGATION<br />DRAG TO ORBIT · SCROLL TO ZOOM</div></header>
     <aside className={styles.panel}><div className={styles.eyebrow}>DESTINATION SELECTED</div><h1>{selectedName}</h1><p>{selectedDetail}</p><div className={styles.planetList}>{planets.map((planet) => <button key={planet.name} className={`${styles.planetButton} ${selected.planet.name === planet.name ? styles.active : ""}`} style={{ "--planet-color": planet.color } as React.CSSProperties} onClick={() => { setMode("ship"); setSelected({ kind: "planet", planet }); }}>{planet.name}</button>)}</div><div className={styles.controls}><button onClick={() => setMode(mode === "ship" ? "map" : "ship")}>{mode === "ship" ? "VIEW SYSTEM MAP" : "ENTER SHIP"}</button><button onClick={() => { setMode("ship"); setSelected({ kind: "planet", planet: planets[2] }); }}>RETURN TO EARTH</button></div></aside>
     <div className={styles.hint}>{mode === "ship" ? <><b>Click canvas to enter cockpit</b><br />WASD / ARROWS: FLY · SHIFT: BOOST</> : <><b>SYSTEM MAP</b><br />DRAG TO ORBIT · SCROLL TO ZOOM</>}</div>
     {mode === "ship" && <div className={styles.cockpit} aria-hidden="true">
       <div className={styles.canopyTop} /><div className={styles.canopyLeft} /><div className={styles.canopyRight} />
       <div className={styles.flightReadout}><span>SHIP // EXPLORER-01</span><b>CRUISE MODE</b><span>DEST: {selectedName.toUpperCase()}</span></div>
-      <div className={styles.planetIntel}><span>APPROACHING</span><b>{selectedName.toUpperCase()}</b><p>{selectedFact}</p></div>
+      <div className={styles.planetIntel}><span>APPROACHING · RANGE {Math.round(range)} NAV UNITS</span><b>{selectedName.toUpperCase()}</b><p>{selectedFact}</p></div>
       <div className={styles.crosshair}><i /><i /><i /><i /><em>+</em></div>
       <div className={styles.targetBox}><span>◜</span><span>◝</span><span>◟</span><span>◞</span><b>TARGET LOCK</b></div>
       <div className={styles.console}>
