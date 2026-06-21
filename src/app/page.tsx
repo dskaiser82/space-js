@@ -14,6 +14,7 @@ type Planet = {
   speed: number;
   angle: number;
   detail: string;
+  fact: string;
   texture?: string;
   moons?: Moon[];
   ring?: boolean;
@@ -23,21 +24,21 @@ type Moon = { name: string; distance: number; size: number; color: string; speed
 type Destination = { kind: "planet"; planet: Planet } | { kind: "moon"; planet: Planet; moon: Moon };
 
 const planets: Planet[] = [
-  { name: "Mercury", color: "#a69a8c", size: .38, distance: 24, speed: .24, angle: .2, detail: "The swiftest world, baked by the Sun.", texture: "/textures/mercury.jpg" },
-  { name: "Venus", color: "#d8a85d", size: .62, distance: 38, speed: .18, angle: 2.45, detail: "A world wrapped in golden clouds.", texture: "/textures/venus.jpg" },
-  { name: "Earth", color: "#3987e7", size: .72, distance: 55, speed: .14, angle: .95, detail: "Our blue home, with one bright companion.", moons: [{ name: "Moon", distance: 1.4, size: .18, color: "#c9c5ba", speed: .32, angle: 1.3, texture: "/textures/moon.jpg" }] },
-  { name: "Mars", color: "#c45b3e", size: .5, distance: 72, speed: .11, angle: 4.1, detail: "The rust-red frontier.", texture: "/textures/mars.jpg", moons: [{ name: "Phobos", distance: .9, size: .09, color: "#9e8879", speed: .44, angle: .6, texture: "/textures/phobos.jpg" }] },
-  { name: "Jupiter", color: "#d69b70", size: 1.85, distance: 98, speed: .06, angle: 2.9, detail: "The giant planet and its stormy bands.", texture: "/textures/jupiter.jpg", moons: [{ name: "Europa", distance: 2.65, size: .16, color: "#d8ccb2", speed: .28, angle: .8, texture: "/textures/europa.jpg" }, { name: "Ganymede", distance: 3.25, size: .24, color: "#a99b84", speed: .2, angle: 3.6, texture: "/textures/ganymede.jpg" }] },
-  { name: "Saturn", color: "#e1c082", size: 1.55, distance: 128, speed: .04, angle: 5.2, detail: "The ringed jewel of the solar system.", texture: "/textures/saturn.jpg", ring: true, moons: [{ name: "Titan", distance: 2.75, size: .22, color: "#c7985a", speed: .19, angle: 2.1, texture: "/textures/titan.jpg" }] },
-  { name: "Uranus", color: "#82d0db", size: 1.1, distance: 158, speed: .03, angle: 1.75, detail: "A cool blue ice giant, tilted sideways.", texture: "/textures/uranus.jpg" },
-  { name: "Neptune", color: "#417bd8", size: 1.08, distance: 190, speed: .02, angle: 3.85, detail: "A deep-blue world at the edge of our tour.", texture: "/textures/neptune.jpg" },
+  { name: "Mercury", color: "#a69a8c", size: .38, distance: 34, speed: .24, angle: .2, detail: "The swiftest world, baked by the Sun.", fact: "A year here lasts just 88 Earth days.", texture: "/textures/mercury.jpg" },
+  { name: "Venus", color: "#d8a85d", size: .62, distance: 54, speed: .18, angle: 2.45, detail: "A world wrapped in golden clouds.", fact: "Its thick atmosphere makes it the hottest planet.", texture: "/textures/venus.jpg" },
+  { name: "Earth", color: "#3987e7", size: .72, distance: 78, speed: .14, angle: .95, detail: "Our blue home, with one bright companion.", fact: "About 71% of its surface is covered by ocean.", moons: [{ name: "Moon", distance: 1.4, size: .18, color: "#c9c5ba", speed: .32, angle: 1.3, texture: "/textures/moon.jpg" }] },
+  { name: "Mars", color: "#c45b3e", size: .5, distance: 102, speed: .11, angle: 4.1, detail: "The rust-red frontier.", fact: "Olympus Mons is the largest volcano in the solar system.", texture: "/textures/mars.jpg", moons: [{ name: "Phobos", distance: .9, size: .09, color: "#9e8879", speed: .44, angle: .6, texture: "/textures/phobos.jpg" }] },
+  { name: "Jupiter", color: "#d69b70", size: 1.85, distance: 140, speed: .06, angle: 2.9, detail: "The giant planet and its stormy bands.", fact: "Its Great Red Spot is a storm wider than Earth.", texture: "/textures/jupiter.jpg", moons: [{ name: "Europa", distance: 2.65, size: .16, color: "#d8ccb2", speed: .28, angle: .8, texture: "/textures/europa.jpg" }, { name: "Ganymede", distance: 3.25, size: .24, color: "#a99b84", speed: .2, angle: 3.6, texture: "/textures/ganymede.jpg" }] },
+  { name: "Saturn", color: "#e1c082", size: 1.55, distance: 180, speed: .04, angle: 5.2, detail: "The ringed jewel of the solar system.", fact: "Its brilliant rings are mostly water-ice particles.", texture: "/textures/saturn.jpg", ring: true, moons: [{ name: "Titan", distance: 2.75, size: .22, color: "#c7985a", speed: .19, angle: 2.1, texture: "/textures/titan.jpg" }] },
+  { name: "Uranus", color: "#82d0db", size: 1.1, distance: 220, speed: .03, angle: 1.75, detail: "A cool blue ice giant, tilted sideways.", fact: "It rotates almost on its side, unlike the other planets.", texture: "/textures/uranus.jpg" },
+  { name: "Neptune", color: "#417bd8", size: 1.08, distance: 265, speed: .02, angle: 3.85, detail: "A deep-blue world at the edge of our tour.", fact: "It has the fastest winds measured in our solar system.", texture: "/textures/neptune.jpg" },
 ];
 
 function Dust() {
   const points = useMemo(() => {
     const positions = new Float32Array(1600 * 3);
     for (let i = 0; i < positions.length; i += 3) {
-      const radius = 13 + Math.random() * 52;
+      const radius = 15 + Math.random() * 430;
       const theta = Math.random() * Math.PI * 2;
       const phi = Math.acos(2 * Math.random() - 1);
       positions[i] = radius * Math.sin(phi) * Math.cos(theta);
@@ -197,13 +198,13 @@ function ShipControls({ target }: { target: Destination }) {
       isFlying.current = true;
     }
     if (isFlying.current) {
-      camera.position.lerp(flightPosition.current, .045);
+      camera.position.lerp(flightPosition.current, .012);
       const desiredRotation = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(camera.position, flightFocus.current, camera.up));
-      camera.quaternion.slerp(desiredRotation, .045);
+      camera.quaternion.slerp(desiredRotation, .018);
       if (camera.position.distanceTo(flightPosition.current) < .05) isFlying.current = false;
       return;
     }
-    const speed = (keys.current.has("Shift") ? 48 : 15) * delta;
+    const speed = (keys.current.has("Shift") ? 18 : 5) * delta;
     const forward = new THREE.Vector3();
     camera.getWorldDirection(forward); forward.normalize();
     const right = new THREE.Vector3().crossVectors(forward, camera.up).normalize();
@@ -217,8 +218,8 @@ function ShipControls({ target }: { target: Destination }) {
 
 function MapControls() {
   const { camera } = useThree();
-  useEffect(() => { camera.position.set(0, 100, 245); camera.lookAt(0, 0, 0); }, [camera]);
-  return <OrbitControls target={[0, 0, 0]} enableDamping minDistance={25} maxDistance={480} />;
+  useEffect(() => { camera.position.set(0, 135, 340); camera.lookAt(0, 0, 0); }, [camera]);
+  return <OrbitControls target={[0, 0, 0]} enableDamping minDistance={25} maxDistance={650} />;
 }
 
 function NavigationTrails() {
@@ -231,26 +232,62 @@ function NavigationTrails() {
 }
 
 function Nebula() {
-  return <group position={[-18, 6, -15]} rotation={[.3, 0, .2]}>
-    {[[0, 0, 0, 5.5], [3, 1, -1, 4], [-3, -1, 1, 3.8]].map(([x, y, z, scale], index) => <mesh key={index} position={[x, y, z]} scale={scale}>
-      <sphereGeometry args={[1, 32, 24]} /><meshBasicMaterial color={index === 1 ? "#9f80ff" : "#377fce"} transparent opacity={.045} depthWrite={false} />
+  const clouds: { position: [number, number, number]; color: string; scale: number }[] = [
+    { position: [-52, 18, -68], color: "#4e78d5", scale: 18 }, { position: [78, -16, -95], color: "#ad61d6", scale: 23 }, { position: [-118, 26, 84], color: "#287eaa", scale: 27 },
+  ];
+  return <>{clouds.map((cloud, cloudIndex) => <group key={cloudIndex} position={cloud.position} rotation={[.3, cloudIndex, .2]}>
+    {[[0, 0, 0, 1], [3, 1, -1, .72], [-3, -1, 1, .68]].map(([x, y, z, scale], index) => <mesh key={index} position={[x, y, z]} scale={cloud.scale * scale}>
+      <sphereGeometry args={[1, 32, 24]} /><meshBasicMaterial color={cloud.color} transparent opacity={.035} depthWrite={false} />
     </mesh>)}
-  </group>;
+  </group>)}</>;
+}
+
+function Comet({ radius, phase, color }: { radius: number; phase: number; color: string }) {
+  const comet = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime() * .045 + phase;
+    if (comet.current) { comet.current.position.set(Math.cos(t) * radius, Math.sin(t * 1.7) * 12, Math.sin(t) * radius * .55); comet.current.rotation.y = -t; }
+  });
+  return <group ref={comet}><Line points={[[-10, 0, 0], [0, 0, 0]]} color={color} transparent opacity={.7} lineWidth={1.2} /><mesh><sphereGeometry args={[.16, 16, 12]} /><meshBasicMaterial color="#ffffff" /></mesh><pointLight color={color} intensity={3} distance={5} /></group>;
+}
+
+function NebulaSky() {
+  const uniforms = useMemo(() => ({ uTime: { value: 0 } }), []);
+  useFrame(({ clock }) => { uniforms.uTime.value = clock.getElapsedTime(); });
+  return <mesh scale={430}><sphereGeometry args={[1, 64, 32]} /><shaderMaterial uniforms={uniforms} vertexShader={nebulaVertexShader} fragmentShader={nebulaFragmentShader} transparent side={THREE.BackSide} depthWrite={false} /></mesh>;
+}
+
+const nebulaVertexShader = `varying vec3 vPosition; void main(){vPosition=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
+const nebulaFragmentShader = `
+  uniform float uTime; varying vec3 vPosition;
+  float h(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
+  float n(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(mix(h(i),h(i+vec3(1,0,0)),f.x),mix(h(i+vec3(0,1,0)),h(i+vec3(1,1,0)),f.x),f.y),mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}
+  float f(vec3 p){float r=0.,a=.6;for(int i=0;i<4;i++){r+=a*n(p);p=p*2.03+5.7;a*=.5;}return r;}
+  void main(){float cloud=f(vPosition*3.1+vec3(uTime*.003,0.,0.));float band=pow(max(0.,1.-abs(vPosition.y+.18)),3.);float gas=smoothstep(.52,.82,cloud)*band;vec3 color=mix(vec3(.06,.16,.37),vec3(.08,.72,1.),cloud);color=mix(color,vec3(.95,.15,.62),smoothstep(.7,.94,cloud));gl_FragColor=vec4(color,gas*.48);}
+`;
+
+function ShipHeadlight() {
+  const { camera } = useThree();
+  const light = useRef<THREE.PointLight>(null);
+  useFrame(() => { light.current?.position.copy(camera.position); });
+  return <pointLight ref={light} color="#cce8ff" intensity={42} distance={65} decay={1.35} />;
 }
 
 function SolarSystem({ selected, onSelect, mode }: { selected: Destination; onSelect: (destination: Destination) => void; mode: "ship" | "map" }) {
   return <Canvas camera={{ position: [0, 3, 16], fov: 62, near: .01 }} dpr={[1, 1.75]} gl={{ antialias: true }}>
     <color attach="background" args={["#02030b"]} />
-    <fog attach="fog" args={["#02030b", 25, 58]} />
+    <fog attach="fog" args={["#02030b", 80, 470]} />
     <ambientLight intensity={.32} color="#9bb8ff" />
     <hemisphereLight args={["#b7d1ff", "#162342", .32]} />
-    <Stars radius={80} depth={45} count={4000} factor={3} saturation={0} fade speed={0} />
+    <NebulaSky />
+    <Stars radius={430} depth={300} count={7000} factor={4} saturation={0} fade speed={0} />
     <Dust />
     <Nebula />
+    <Comet radius={112} phase={.6} color="#8ddaff" /><Comet radius={175} phase={3.2} color="#ffbca4" /><Comet radius={245} phase={5.1} color="#d5b6ff" />
     <Sun />
     <NavigationTrails />
     <Suspense fallback={null}>{planets.map((planet) => <PlanetBody key={planet.name} planet={planet} selected={selected.planet.name === planet.name} onSelect={onSelect} />)}</Suspense>
-    {mode === "ship" ? <ShipControls target={selected} /> : <MapControls />}
+    {mode === "ship" ? <><ShipHeadlight /><ShipControls target={selected} /></> : <MapControls />}
   </Canvas>;
 }
 
@@ -261,6 +298,7 @@ export default function Home() {
   const [mode, setMode] = useState<"ship" | "map">("ship");
   const selectedName = selected.kind === "moon" ? selected.moon.name : selected.planet.name;
   const selectedDetail = selected.kind === "moon" ? `${selected.moon.name} travels around ${selected.planet.name}.` : selected.planet.detail;
+  const selectedFact = selected.kind === "moon" ? `${selected.moon.name} is currently in orbit around ${selected.planet.name}.` : selected.planet.fact;
   return <main className={styles.page}>
     <section className={styles.scene}><SolarSystem selected={selected} onSelect={setSelected} mode={mode} /></section>
     <header className={styles.topbar}><div className={styles.brand}><span className={styles.brandMark}>✦</span><div><b>ORBITAL EXPLORER</b><small>LOCAL STAR SYSTEM</small></div></div><div className={styles.coordinates}>LIVE NAVIGATION<br />DRAG TO ORBIT · SCROLL TO ZOOM</div></header>
@@ -269,6 +307,7 @@ export default function Home() {
     {mode === "ship" && <div className={styles.cockpit} aria-hidden="true">
       <div className={styles.canopyTop} /><div className={styles.canopyLeft} /><div className={styles.canopyRight} />
       <div className={styles.flightReadout}><span>SHIP // EXPLORER-01</span><b>CRUISE MODE</b><span>DEST: {selectedName.toUpperCase()}</span></div>
+      <div className={styles.planetIntel}><span>APPROACHING</span><b>{selectedName.toUpperCase()}</b><p>{selectedFact}</p></div>
       <div className={styles.crosshair}><i /><i /><i /><i /><em>+</em></div>
       <div className={styles.targetBox}><span>◜</span><span>◝</span><span>◟</span><span>◞</span><b>TARGET LOCK</b></div>
       <div className={styles.console}>
