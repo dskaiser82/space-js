@@ -1,8 +1,8 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, Stars } from "@react-three/drei";
-import { useMemo, useRef, useState } from "react";
+import { OrbitControls, Stars, useGLTF, useTexture } from "@react-three/drei";
+import { Suspense, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import styles from "./page.module.css";
@@ -13,23 +13,25 @@ type Planet = {
   size: number;
   distance: number;
   speed: number;
+  angle: number;
   detail: string;
+  texture?: string;
   moons?: Moon[];
   ring?: boolean;
 };
 
-type Moon = { name: string; distance: number; size: number; color: string; speed: number };
+type Moon = { name: string; distance: number; size: number; color: string; speed: number; angle: number; texture: string };
 type Destination = { kind: "planet"; planet: Planet } | { kind: "moon"; planet: Planet; moon: Moon };
 
 const planets: Planet[] = [
-  { name: "Mercury", color: "#a69a8c", size: .28, distance: 4.2, speed: .24, detail: "The swiftest world, baked by the Sun." },
-  { name: "Venus", color: "#d8a85d", size: .48, distance: 5.7, speed: .18, detail: "A world wrapped in golden clouds." },
-  { name: "Earth", color: "#3987e7", size: .55, distance: 7.35, speed: .14, detail: "Our blue home, with one bright companion.", moons: [{ name: "Moon", distance: 1.1, size: .14, color: "#c9c5ba", speed: .32 }] },
-  { name: "Mars", color: "#c45b3e", size: .38, distance: 8.9, speed: .11, detail: "The rust-red frontier.", moons: [{ name: "Phobos", distance: .72, size: .07, color: "#9e8879", speed: .44 }] },
-  { name: "Jupiter", color: "#d69b70", size: 1.15, distance: 11.7, speed: .06, detail: "The giant planet and its stormy bands.", moons: [{ name: "Europa", distance: 1.75, size: .12, color: "#d8ccb2", speed: .28 }, { name: "Ganymede", distance: 2.15, size: .18, color: "#a99b84", speed: .2 }] },
-  { name: "Saturn", color: "#e1c082", size: .95, distance: 15.3, speed: .04, detail: "The ringed jewel of the solar system.", ring: true, moons: [{ name: "Titan", distance: 1.85, size: .16, color: "#c7985a", speed: .19 }] },
-  { name: "Uranus", color: "#82d0db", size: .7, distance: 18.6, speed: .03, detail: "A cool blue ice giant, tilted sideways." },
-  { name: "Neptune", color: "#417bd8", size: .68, distance: 21.7, speed: .02, detail: "A deep-blue world at the edge of our tour." },
+  { name: "Mercury", color: "#a69a8c", size: .28, distance: 4.2, speed: .24, angle: .2, detail: "The swiftest world, baked by the Sun.", texture: "/textures/mercury.jpg" },
+  { name: "Venus", color: "#d8a85d", size: .48, distance: 5.7, speed: .18, angle: 2.45, detail: "A world wrapped in golden clouds.", texture: "/textures/venus.jpg" },
+  { name: "Earth", color: "#3987e7", size: .55, distance: 7.35, speed: .14, angle: .95, detail: "Our blue home, with one bright companion.", moons: [{ name: "Moon", distance: 1.1, size: .14, color: "#c9c5ba", speed: .32, angle: 1.3, texture: "/textures/moon.jpg" }] },
+  { name: "Mars", color: "#c45b3e", size: .38, distance: 8.9, speed: .11, angle: 4.1, detail: "The rust-red frontier.", texture: "/textures/mars.jpg", moons: [{ name: "Phobos", distance: .72, size: .07, color: "#9e8879", speed: .44, angle: .6, texture: "/textures/phobos.jpg" }] },
+  { name: "Jupiter", color: "#d69b70", size: 1.15, distance: 11.7, speed: .06, angle: 2.9, detail: "The giant planet and its stormy bands.", texture: "/textures/jupiter.jpg", moons: [{ name: "Europa", distance: 1.75, size: .12, color: "#d8ccb2", speed: .28, angle: .8, texture: "/textures/europa.jpg" }, { name: "Ganymede", distance: 2.15, size: .18, color: "#a99b84", speed: .2, angle: 3.6, texture: "/textures/ganymede.jpg" }] },
+  { name: "Saturn", color: "#e1c082", size: .95, distance: 15.3, speed: .04, angle: 5.2, detail: "The ringed jewel of the solar system.", texture: "/textures/saturn.jpg", ring: true, moons: [{ name: "Titan", distance: 1.85, size: .16, color: "#c7985a", speed: .19, angle: 2.1, texture: "/textures/titan.jpg" }] },
+  { name: "Uranus", color: "#82d0db", size: .7, distance: 18.6, speed: .03, angle: 1.75, detail: "A cool blue ice giant, tilted sideways.", texture: "/textures/uranus.jpg" },
+  { name: "Neptune", color: "#417bd8", size: .68, distance: 21.7, speed: .02, angle: 3.85, detail: "A deep-blue world at the edge of our tour.", texture: "/textures/neptune.jpg" },
 ];
 
 function Dust() {
@@ -48,27 +50,106 @@ function Dust() {
   return <points><bufferGeometry><bufferAttribute attach="attributes-position" args={[points, 3]} /></bufferGeometry><pointsMaterial color="#d9e6ff" size={.035} sizeAttenuation transparent opacity={.75} /></points>;
 }
 
-function Moon({ moon, planet, onSelect }: { moon: Moon; planet: Planet; onSelect: (destination: Destination) => void }) {
-  const group = useRef<THREE.Group>(null);
+function Sun() {
+  const corona = useRef<THREE.Mesh>(null);
+  const halo = useRef<THREE.Mesh>(null);
+  const plasma = useMemo(() => ({ uTime: { value: 0 } }), []);
   useFrame(({ clock }) => {
-    if (group.current) group.current.rotation.y = clock.getElapsedTime() * moon.speed;
+    const pulse = Math.sin(clock.getElapsedTime() * 1.4) * .025;
+    plasma.uTime.value = clock.getElapsedTime();
+    if (corona.current) corona.current.scale.setScalar(1 + pulse);
+    if (halo.current) halo.current.scale.setScalar(1 - pulse * .5);
   });
-  return <group ref={group}><mesh position={[moon.distance, 0, 0]} onClick={(event) => { event.stopPropagation(); onSelect({ kind: "moon", planet, moon }); }}><sphereGeometry args={[moon.size, 24, 16]} /><meshStandardMaterial color={moon.color} roughness={.9} /></mesh></group>;
+  return <group>
+    <mesh><sphereGeometry args={[2.3, 96, 72]} /><shaderMaterial uniforms={plasma} vertexShader={sunVertexShader} fragmentShader={sunFragmentShader} /></mesh>
+    <mesh ref={corona} scale={1.13}><sphereGeometry args={[2.3, 64, 48]} /><meshBasicMaterial color="#ff6b1a" transparent opacity={.13} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
+    <mesh ref={halo} scale={1.42}><sphereGeometry args={[2.3, 64, 48]} /><meshBasicMaterial color="#ff9a31" transparent opacity={.035} side={THREE.BackSide} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
+    <SolarFlare position={[.35, .7, .05]} rotation={[0, 0, 0]} phase={0} />
+    <SolarFlare position={[-.42, -.8, -.08]} rotation={[0, 0, 1.8]} phase={2.1} />
+    <SolarFlare position={[1.1, -.25, .12]} rotation={[0, 0, 3.7]} phase={4.3} />
+    <pointLight color="#ffb15d" intensity={220} distance={42} decay={1.5} />
+  </group>;
+}
+
+const sunVertexShader = `
+  varying vec3 vPosition;
+  void main() {
+    vPosition = normalize(position);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const sunFragmentShader = `
+  uniform float uTime;
+  varying vec3 vPosition;
+
+  float hash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453123); }
+  float noise(vec3 p) {
+    vec3 i = floor(p); vec3 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(mix(hash(i), hash(i + vec3(1.,0.,0.)), f.x), mix(hash(i + vec3(0.,1.,0.)), hash(i + vec3(1.,1.,0.)), f.x), f.y), mix(mix(hash(i + vec3(0.,0.,1.)), hash(i + vec3(1.,0.,1.)), f.x), mix(hash(i + vec3(0.,1.,1.)), hash(i + vec3(1.,1.,1.)), f.x), f.y), f.z);
+  }
+  float fbm(vec3 p) {
+    float value = 0.; float amplitude = .55;
+    for (int i = 0; i < 5; i++) { value += amplitude * noise(p); p = p * 2.05 + 11.3; amplitude *= .5; }
+    return value;
+  }
+  void main() {
+    vec3 drift = vec3(uTime * .055, -uTime * .025, uTime * .035);
+    float broad = fbm(vPosition * 3.2 + drift);
+    float grain = fbm(vPosition * 15. + drift * 2.4);
+    float plasma = smoothstep(.18, .86, broad * .72 + grain * .48);
+    float filament = smoothstep(.62, .9, fbm(vPosition * 7. + vec3(-uTime * .09, uTime * .04, 0.)));
+    vec3 deep = vec3(.72, .055, .002);
+    vec3 hot = vec3(1., .29, .008);
+    vec3 bright = vec3(1., .82, .22);
+    vec3 color = mix(deep, hot, plasma);
+    color = mix(color, bright, filament * .58);
+    gl_FragColor = vec4(color * 1.35, 1.0);
+  }
+`;
+
+function SolarFlare({ position, rotation, phase }: { position: [number, number, number]; rotation: [number, number, number]; phase: number }) {
+  const flare = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    const surge = 1 + Math.max(0, Math.sin(clock.getElapsedTime() * 1.3 + phase)) * .28;
+    if (flare.current) flare.current.scale.setScalar(surge);
+  });
+  return <group ref={flare} position={position} rotation={rotation}>
+    <mesh><torusGeometry args={[2.48, .038, 8, 42, .72]} /><meshBasicMaterial color="#ffd37a" transparent opacity={.88} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
+    <mesh scale={1.06}><torusGeometry args={[2.48, .015, 8, 42, .72]} /><meshBasicMaterial color="#ff6b2c" transparent opacity={.8} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
+  </group>;
+}
+
+function Moon({ moon, planet, onSelect }: { moon: Moon; planet: Planet; onSelect: (destination: Destination) => void }) {
+  const texture = useTexture(moon.texture);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return <mesh position={[Math.cos(moon.angle) * moon.distance, 0, -Math.sin(moon.angle) * moon.distance]} onClick={(event) => { event.stopPropagation(); onSelect({ kind: "moon", planet, moon }); }}><sphereGeometry args={[moon.size, 24, 16]} /><meshStandardMaterial map={texture} color={moon.color} roughness={.9} /></mesh>;
+}
+
+function NasaEarth() {
+  const { scene } = useGLTF("/models/nasa-earth.glb");
+  const earth = useMemo(() => scene.clone(), [scene]);
+  return <primitive object={earth} scale={.0011} rotation={[0, Math.PI / 2, 0]} />;
+}
+
+function TexturedPlanet({ planet }: { planet: Planet }) {
+  const texture = useTexture(planet.texture!);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  return <mesh castShadow><sphereGeometry args={[planet.size, 40, 28]} /><meshStandardMaterial map={texture} color={planet.color} roughness={.72} metalness={.05} /></mesh>;
 }
 
 function PlanetBody({ planet, selected, onSelect }: { planet: Planet; selected: boolean; onSelect: (destination: Destination) => void }) {
-  const group = useRef<THREE.Group>(null);
-  const mesh = useRef<THREE.Mesh>(null);
-  useFrame(({ clock }) => {
-    const t = clock.getElapsedTime() * planet.speed;
-    if (group.current) group.current.position.set(Math.cos(t) * planet.distance, Math.sin(t * .45) * .22, Math.sin(t) * planet.distance);
-    if (mesh.current) mesh.current.rotation.y += .004;
+  const body = useRef<THREE.Group>(null);
+  useFrame(() => {
+    if (selected && body.current) body.current.rotation.y += .004;
   });
-  return <group ref={group} onClick={(event) => { event.stopPropagation(); onSelect({ kind: "planet", planet }); }}>
-    <mesh ref={mesh} castShadow><sphereGeometry args={[planet.size, 40, 28]} /><meshStandardMaterial color={planet.color} roughness={.72} metalness={.05} emissive={planet.color} emissiveIntensity={selected ? .25 : .04} /></mesh>
+  return <group position={[Math.cos(planet.angle) * planet.distance, 0, Math.sin(planet.angle) * planet.distance]} onClick={(event) => { event.stopPropagation(); onSelect({ kind: "planet", planet }); }}>
+    <group ref={body}>{planet.name === "Earth" ? <NasaEarth /> : <TexturedPlanet planet={planet} />}
     {selected && <mesh scale={1.25}><sphereGeometry args={[planet.size, 32, 20]} /><meshBasicMaterial color={planet.color} transparent opacity={.1} side={THREE.BackSide} /></mesh>}
     {planet.ring && <mesh rotation={[Math.PI / 2.45, 0, 0]}><ringGeometry args={[1.25, 1.8, 80]} /><meshBasicMaterial color="#d9c090" transparent opacity={.65} side={THREE.DoubleSide} /></mesh>}
     {planet.moons?.map((moon) => <Moon key={moon.name} moon={moon} planet={planet} onSelect={onSelect} />)}
+    </group>
   </group>;
 }
 
@@ -80,14 +161,12 @@ function CameraFlight({ target }: { target: Destination }) {
   const focus = useRef(new THREE.Vector3());
   const lastTarget = useRef(target);
   const isFlying = useRef(false);
-  useFrame(({ clock }) => {
+  useFrame(() => {
     if (target !== lastTarget.current) {
       const planet = target.planet;
-      const t = clock.getElapsedTime() * planet.speed;
-      focus.current.set(Math.cos(t) * planet.distance, Math.sin(t * .45) * .22, Math.sin(t) * planet.distance);
+      focus.current.set(Math.cos(planet.angle) * planet.distance, 0, Math.sin(planet.angle) * planet.distance);
       if (target.kind === "moon") {
-        const moonT = clock.getElapsedTime() * target.moon.speed;
-        focus.current.add(new THREE.Vector3(Math.cos(moonT) * target.moon.distance, 0, -Math.sin(moonT) * target.moon.distance));
+        focus.current.add(new THREE.Vector3(Math.cos(target.moon.angle) * target.moon.distance, 0, -Math.sin(target.moon.angle) * target.moon.distance));
       }
       const size = target.kind === "moon" ? target.moon.size : planet.size;
       flightFocus.current.copy(focus.current);
@@ -107,9 +186,7 @@ function CameraFlight({ target }: { target: Destination }) {
 }
 
 function Nebula() {
-  const group = useRef<THREE.Group>(null);
-  useFrame((_, delta) => { if (group.current) group.current.rotation.y += delta * .012; });
-  return <group ref={group} position={[-18, 6, -15]} rotation={[.3, 0, .2]}>
+  return <group position={[-18, 6, -15]} rotation={[.3, 0, .2]}>
     {[[0, 0, 0, 5.5], [3, 1, -1, 4], [-3, -1, 1, 3.8]].map(([x, y, z, scale], index) => <mesh key={index} position={[x, y, z]} scale={scale}>
       <sphereGeometry args={[1, 32, 24]} /><meshBasicMaterial color={index === 1 ? "#9f80ff" : "#377fce"} transparent opacity={.045} depthWrite={false} />
     </mesh>)}
@@ -121,16 +198,16 @@ function SolarSystem({ selected, onSelect }: { selected: Destination; onSelect: 
     <color attach="background" args={["#02030b"]} />
     <fog attach="fog" args={["#02030b", 25, 58]} />
     <ambientLight intensity={.12} />
-    <pointLight position={[0, 0, 0]} color="#ffbf6b" intensity={220} distance={42} decay={1.5} />
-    <Stars radius={80} depth={45} count={4000} factor={3} saturation={0} fade speed={.3} />
+    <Stars radius={80} depth={45} count={4000} factor={3} saturation={0} fade speed={0} />
     <Dust />
     <Nebula />
-    <mesh><sphereGeometry args={[2.3, 64, 48]} /><meshBasicMaterial color="#ffb34f" /><pointLight color="#ff8b38" intensity={14} distance={8} /></mesh>
-    <mesh scale={1.12}><sphereGeometry args={[2.3, 64, 48]} /><meshBasicMaterial color="#ff8b38" transparent opacity={.12} side={THREE.BackSide} /></mesh>
-    {planets.map((planet) => <PlanetBody key={planet.name} planet={planet} selected={selected.planet.name === planet.name} onSelect={onSelect} />)}
+    <Sun />
+    <Suspense fallback={null}>{planets.map((planet) => <PlanetBody key={planet.name} planet={planet} selected={selected.planet.name === planet.name} onSelect={onSelect} />)}</Suspense>
     <CameraFlight target={selected} />
   </Canvas>;
 }
+
+useGLTF.preload("/models/nasa-earth.glb");
 
 export default function Home() {
   const [selected, setSelected] = useState<Destination>({ kind: "planet", planet: planets[2] });
