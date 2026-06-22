@@ -315,6 +315,24 @@ function SolarSystem({ selected, onSelect, mode, onRange }: { selected: Destinat
 
 useGLTF.preload("/models/nasa-earth.glb");
 
+function ShipMusic() {
+  const player = useRef<HTMLIFrameElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const toggle = () => {
+    const next = !playing;
+    player.current?.contentWindow?.postMessage(JSON.stringify({ event: "command", func: next ? "playVideo" : "pauseVideo", args: [] }), "https://www.youtube.com");
+    setPlaying(next);
+  };
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.code === "Space" && !(event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)) { event.preventDefault(); toggle(); }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+  return <><iframe ref={player} className={styles.musicFrame} title="Ship music via YouTube" src="https://www.youtube.com/embed/ce0cDkNYohk?enablejsapi=1&playsinline=1&rel=0" allow="autoplay; encrypted-media" /><button className={styles.musicButton} onClick={toggle}>{playing ? "❚❚ PAUSE MUSIC" : "▶ PLAY MUSIC"}<small>SPACE</small></button></>;
+}
+
 export default function Home() {
   const [selected, setSelected] = useState<Destination>({ kind: "planet", planet: planets[2] });
   const [mode, setMode] = useState<"ship" | "map">("ship");
@@ -325,6 +343,7 @@ export default function Home() {
   return <main className={styles.page}>
     <section className={styles.scene}><SolarSystem selected={selected} onSelect={setSelected} mode={mode} onRange={setRange} /></section>
     <header className={styles.topbar}><div className={styles.brand}><span className={styles.brandMark}>✦</span><div><b>ORBITAL EXPLORER</b><small>LOCAL STAR SYSTEM</small></div></div><div className={styles.coordinates}>LIVE NAVIGATION<br />DRAG TO ORBIT · SCROLL TO ZOOM</div></header>
+    <ShipMusic />
     <aside className={styles.panel}><div className={styles.eyebrow}>DESTINATION SELECTED</div><h1>{selectedName}</h1><p>{selectedDetail}</p><div className={styles.planetList}>{planets.map((planet) => <button key={planet.name} className={`${styles.planetButton} ${selected.planet.name === planet.name ? styles.active : ""}`} style={{ "--planet-color": planet.color } as React.CSSProperties} onClick={() => { setMode("ship"); setSelected({ kind: "planet", planet }); }}>{planet.name}</button>)}</div><div className={styles.controls}><button onClick={() => setMode(mode === "ship" ? "map" : "ship")}>{mode === "ship" ? "VIEW SYSTEM MAP" : "ENTER SHIP"}</button><button onClick={() => { setMode("ship"); setSelected({ kind: "planet", planet: planets[2] }); }}>RETURN TO EARTH</button></div></aside>
     <div className={styles.hint}>{mode === "ship" ? <><b>Click canvas to enter cockpit</b><br />WASD / ARROWS: FLY · SHIFT: BOOST</> : <><b>SYSTEM MAP</b><br />DRAG TO ORBIT · SCROLL TO ZOOM</>}</div>
     {mode === "ship" && <div className={styles.cockpit} aria-hidden="true">
