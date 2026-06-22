@@ -254,14 +254,32 @@ function WorldIntel({ destination }: { destination: Destination }) {
 
 function Nebula() {
   const clouds: { position: [number, number, number]; color: string; scale: number }[] = [
-    { position: [-52, 18, -68], color: "#4e78d5", scale: 18 }, { position: [78, -16, -95], color: "#ad61d6", scale: 23 }, { position: [-118, 26, 84], color: "#287eaa", scale: 27 },
+    { position: [-25, 9, -38], color: "#4d328b", scale: 16 }, { position: [44, -12, -55], color: "#52328d", scale: 23 }, { position: [82, 18, -102], color: "#6b317e", scale: 29 },
+    { position: [-72, 20, 66], color: "#243d8f", scale: 27 }, { position: [-138, -18, 90], color: "#47296f", scale: 38 }, { position: [170, 18, 104], color: "#243c7f", scale: 44 },
   ];
   return <>{clouds.map((cloud, cloudIndex) => <group key={cloudIndex} position={cloud.position} rotation={[.3, cloudIndex, .2]}>
-    {[[0, 0, 0, 1], [3, 1, -1, .72], [-3, -1, 1, .68]].map(([x, y, z, scale], index) => <mesh key={index} position={[x, y, z]} scale={cloud.scale * scale}>
-      <sphereGeometry args={[1, 32, 24]} /><meshBasicMaterial color={cloud.color} transparent opacity={.035} depthWrite={false} />
-    </mesh>)}
+    {[[0, 0, 0, 1], [3, 1, -1, .72], [-3, -1, 1, .68], [1, -2, 2, .55], [-2, 2, -2, .48]].map(([x, y, z, scale], index) => <GasPuff key={index} color={cloud.color} seed={cloudIndex * 10 + index} position={[x, y, z]} scale={[cloud.scale * scale * 1.6, cloud.scale * scale * .75, cloud.scale * scale]} />)}
   </group>)}</>;
 }
+
+function GasPuff({ color, seed, position, scale }: { color: string; seed: number; position: [number, number, number]; scale: [number, number, number] }) {
+  const uniforms = useMemo(() => ({ uTime: { value: 0 }, uSeed: { value: seed }, uColor: { value: new THREE.Color(color) } }), [color, seed]);
+  useFrame(({ clock }) => { uniforms.uTime.value = clock.getElapsedTime(); });
+  return <mesh position={position} scale={scale}><sphereGeometry args={[1, 48, 32]} /><shaderMaterial uniforms={uniforms} vertexShader={gasVertexShader} fragmentShader={gasFragmentShader} transparent depthWrite={false} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} /></mesh>;
+}
+
+const gasVertexShader = `
+  varying vec3 vNormal; varying vec3 vPosition; varying vec3 vView;
+  void main(){vPosition=position;vec4 mv=modelViewMatrix*vec4(position,1.);vView=normalize(-mv.xyz);vNormal=normalize(normalMatrix*normal);gl_Position=projectionMatrix*mv;}
+`;
+const gasFragmentShader = `
+  uniform float uTime; uniform float uSeed; uniform vec3 uColor;
+  varying vec3 vNormal; varying vec3 vPosition; varying vec3 vView;
+  float h(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
+  float n(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(mix(h(i),h(i+vec3(1,0,0)),f.x),mix(h(i+vec3(0,1,0)),h(i+vec3(1,1,0)),f.x),f.y),mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}
+  float f(vec3 p){float r=0.,a=.6;for(int i=0;i<4;i++){r+=a*n(p);p=p*2.04+uSeed*3.1;a*=.5;}return r;}
+  void main(){float edge=1.-abs(dot(normalize(vNormal),normalize(vView)));float wisps=f(vPosition*3.5+vec3(uTime*.018,uSeed,0.));float alpha=smoothstep(.08,.72,edge*wisps)*.24;gl_FragColor=vec4(uColor*(.55+wisps*.75),alpha);}
+`;
 
 function Comet({ radius, phase, color }: { radius: number; phase: number; color: string }) {
   const comet = useRef<THREE.Group>(null);
@@ -273,18 +291,19 @@ function Comet({ radius, phase, color }: { radius: number; phase: number; color:
 }
 
 function NebulaSky() {
-  const uniforms = useMemo(() => ({ uTime: { value: 0 } }), []);
-  useFrame(({ clock }) => { uniforms.uTime.value = clock.getElapsedTime(); });
-  return <mesh scale={430}><sphereGeometry args={[1, 64, 32]} /><shaderMaterial uniforms={uniforms} vertexShader={nebulaVertexShader} fragmentShader={nebulaFragmentShader} transparent side={THREE.BackSide} depthWrite={false} /></mesh>;
+  const outer = useMemo(() => ({ uTime: { value: 0 }, uSeed: { value: 0 } }), []);
+  const inner = useMemo(() => ({ uTime: { value: 0 }, uSeed: { value: 13.7 } }), []);
+  useFrame(({ clock }) => { outer.uTime.value = clock.getElapsedTime(); inner.uTime.value = clock.getElapsedTime(); });
+  return <><mesh scale={430}><sphereGeometry args={[1, 64, 32]} /><shaderMaterial uniforms={outer} vertexShader={nebulaVertexShader} fragmentShader={nebulaFragmentShader} transparent side={THREE.BackSide} depthWrite={false} /></mesh><mesh scale={424} rotation={[.18, .55, .08]}><sphereGeometry args={[1, 64, 32]} /><shaderMaterial uniforms={inner} vertexShader={nebulaVertexShader} fragmentShader={nebulaFragmentShader} transparent side={THREE.BackSide} depthWrite={false} /></mesh></>;
 }
 
 const nebulaVertexShader = `varying vec3 vPosition; void main(){vPosition=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`;
 const nebulaFragmentShader = `
-  uniform float uTime; varying vec3 vPosition;
+  uniform float uTime; uniform float uSeed; varying vec3 vPosition;
   float h(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453);}
   float n(vec3 p){vec3 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(mix(h(i),h(i+vec3(1,0,0)),f.x),mix(h(i+vec3(0,1,0)),h(i+vec3(1,1,0)),f.x),f.y),mix(mix(h(i+vec3(0,0,1)),h(i+vec3(1,0,1)),f.x),mix(h(i+vec3(0,1,1)),h(i+vec3(1,1,1)),f.x),f.y),f.z);}
-  float f(vec3 p){float r=0.,a=.6;for(int i=0;i<4;i++){r+=a*n(p);p=p*2.03+5.7;a*=.5;}return r;}
-  void main(){float cloud=f(vPosition*3.1+vec3(uTime*.003,0.,0.));float band=pow(max(0.,1.-abs(vPosition.y+.18)),3.);float gas=smoothstep(.52,.82,cloud)*band;vec3 color=mix(vec3(.06,.16,.37),vec3(.08,.72,1.),cloud);color=mix(color,vec3(.95,.15,.62),smoothstep(.7,.94,cloud));gl_FragColor=vec4(color,gas*.48);}
+  float f(vec3 p){float r=0.,a=.6;for(int i=0;i<4;i++){r+=a*n(p);p=p*2.03+5.7+uSeed;a*=.5;}return r;}
+  void main(){vec3 drift=vec3(uTime*.002,0.,uSeed*.1);float broad=f(vPosition*2.15+drift);float detail=f(vPosition*6.2-drift*2.);float shape=broad*.75+detail*.38;float gas=smoothstep(.52,.82,shape);float purple=smoothstep(.62,.9,f(vPosition*4.4+vec3(uSeed,0.,0.)))*gas;vec3 color=mix(vec3(.025,.08,.19),vec3(.05,.54,.92),broad);color=mix(color,vec3(.34,.07,.48),purple*.9);color=mix(color,vec3(.27,.8,1.),smoothstep(.76,.94,shape)*.45);gl_FragColor=vec4(color,gas*.52);}
 `;
 
 function ShipHeadlight() {
