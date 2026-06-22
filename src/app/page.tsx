@@ -262,7 +262,7 @@ function VenusBriefing({ active }: { active: boolean }) {
   const venus = planets[1];
   const position = useMemo(() => new THREE.Vector3(Math.cos(venus.angle) * venus.distance, venus.size + 4, Math.sin(venus.angle) * venus.distance), [venus]);
   useFrame(() => {
-    const next = active && camera.position.distanceTo(position) < 62;
+    const next = active && camera.position.distanceTo(position) < 36;
     if (next !== isNearby.current) { isNearby.current = next; setNearby(next); }
   });
   if (!nearby) return null;
@@ -282,14 +282,13 @@ function Nebula() {
     { position: [-72, 20, 66], color: "#243d8f", scale: 27 }, { position: [-138, -18, 90], color: "#47296f", scale: 38 }, { position: [170, 18, 104], color: "#243c7f", scale: 44 },
   ];
   return <>{clouds.map((cloud, cloudIndex) => <group key={cloudIndex} position={cloud.position} rotation={[.3, cloudIndex, .2]}>
-    {[[0, 0, 0, 1], [3, 1, -1, .72], [-3, -1, 1, .68], [1, -2, 2, .55], [-2, 2, -2, .48]].map(([x, y, z, scale], index) => <GasPuff key={index} color={cloud.color} seed={cloudIndex * 10 + index} position={[x, y, z]} scale={[cloud.scale * scale * 1.6, cloud.scale * scale * .75, cloud.scale * scale]} />)}
+    {[[0, 0, 0, 1], [3, 1, -1, .72], [-3, -1, 1, .68], [1, -2, 2, .55]].map(([x, y, z, scale], index) => <GasPuff key={index} color={cloud.color} seed={cloudIndex * 10 + index} position={[x, y, z]} scale={[cloud.scale * scale * 1.6, cloud.scale * scale * .75, cloud.scale * scale]} />)}
   </group>)}</>;
 }
 
 function GasPuff({ color, seed, position, scale }: { color: string; seed: number; position: [number, number, number]; scale: [number, number, number] }) {
   const uniforms = useMemo(() => ({ uTime: { value: 0 }, uSeed: { value: seed }, uColor: { value: new THREE.Color(color) } }), [color, seed]);
-  useFrame(({ clock }) => { uniforms.uTime.value = clock.getElapsedTime(); });
-  return <mesh position={position} scale={scale}><sphereGeometry args={[1, 48, 32]} /><shaderMaterial uniforms={uniforms} vertexShader={gasVertexShader} fragmentShader={gasFragmentShader} transparent depthWrite={false} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} /></mesh>;
+  return <mesh position={position} scale={scale}><sphereGeometry args={[1, 24, 16]} /><shaderMaterial uniforms={uniforms} vertexShader={gasVertexShader} fragmentShader={gasFragmentShader} transparent depthWrite={false} side={THREE.DoubleSide} blending={THREE.AdditiveBlending} /></mesh>;
 }
 
 const gasVertexShader = `
@@ -338,13 +337,13 @@ function ShipHeadlight() {
 }
 
 function SolarSystem({ selected, onSelect, mode, onRange, factIndex }: { selected: Destination; onSelect: (destination: Destination) => void; mode: "ship" | "map"; onRange: (range: number) => void; factIndex: number }) {
-  return <Canvas camera={{ position: [0, 3, 16], fov: 62, near: .01 }} dpr={[1, 1.75]} gl={{ antialias: true }}>
+  return <Canvas camera={{ position: [0, 3, 16], fov: 62, near: .01 }} dpr={[1, 1.35]} gl={{ antialias: true }}>
     <color attach="background" args={["#02030b"]} />
     <fog attach="fog" args={["#02030b", 80, 470]} />
     <ambientLight intensity={.32} color="#9bb8ff" />
     <hemisphereLight args={["#b7d1ff", "#162342", .32]} />
     <NebulaSky />
-    <Stars radius={430} depth={300} count={7000} factor={4} saturation={0} fade speed={0} />
+    <Stars radius={430} depth={300} count={4500} factor={4} saturation={0} fade speed={0} />
     <Dust />
     <Nebula />
     <Comet radius={112} phase={.6} color="#8ddaff" /><Comet radius={175} phase={3.2} color="#ffbca4" /><Comet radius={245} phase={5.1} color="#d5b6ff" />
