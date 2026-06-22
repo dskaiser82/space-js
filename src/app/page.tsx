@@ -1,7 +1,7 @@
 "use client";
 
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Billboard, Line, OrbitControls, PointerLockControls, Stars, Text, useGLTF, useTexture } from "@react-three/drei";
+import { Billboard, Html, Line, OrbitControls, PointerLockControls, Stars, Text, useGLTF, useTexture } from "@react-three/drei";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import styles from "./page.module.css";
@@ -14,24 +14,24 @@ type Planet = {
   speed: number;
   angle: number;
   detail: string;
-  fact: string;
+  facts: string[];
   texture?: string;
   moons?: Moon[];
   ring?: boolean;
 };
 
-type Moon = { name: string; distance: number; size: number; color: string; speed: number; angle: number; texture: string };
+type Moon = { name: string; distance: number; size: number; color: string; speed: number; angle: number; texture: string; facts?: string[] };
 type Destination = { kind: "planet"; planet: Planet } | { kind: "moon"; planet: Planet; moon: Moon };
 
 const planets: Planet[] = [
-  { name: "Mercury", color: "#a69a8c", size: .38, distance: 34, speed: .24, angle: .2, detail: "The swiftest world, baked by the Sun.", fact: "A year here lasts just 88 Earth days.", texture: "/textures/mercury.jpg" },
-  { name: "Venus", color: "#d8a85d", size: .62, distance: 54, speed: .18, angle: 2.45, detail: "A world wrapped in golden clouds.", fact: "Its thick atmosphere makes it the hottest planet.", texture: "/textures/venus.jpg" },
-  { name: "Earth", color: "#3987e7", size: .72, distance: 78, speed: .14, angle: .95, detail: "Our blue home, with one bright companion.", fact: "About 71% of its surface is covered by ocean.", moons: [{ name: "Moon", distance: 1.4, size: .18, color: "#c9c5ba", speed: .32, angle: 1.3, texture: "/textures/moon.jpg" }] },
-  { name: "Mars", color: "#c45b3e", size: .5, distance: 102, speed: .11, angle: 4.1, detail: "The rust-red frontier.", fact: "Olympus Mons is the largest volcano in the solar system.", texture: "/textures/mars.jpg", moons: [{ name: "Phobos", distance: .9, size: .09, color: "#9e8879", speed: .44, angle: .6, texture: "/textures/phobos.jpg" }] },
-  { name: "Jupiter", color: "#d69b70", size: 1.85, distance: 140, speed: .06, angle: 2.9, detail: "The giant planet and its stormy bands.", fact: "Its Great Red Spot is a storm wider than Earth.", texture: "/textures/jupiter.jpg", moons: [{ name: "Europa", distance: 2.65, size: .16, color: "#d8ccb2", speed: .28, angle: .8, texture: "/textures/europa.jpg" }, { name: "Ganymede", distance: 3.25, size: .24, color: "#a99b84", speed: .2, angle: 3.6, texture: "/textures/ganymede.jpg" }] },
-  { name: "Saturn", color: "#e1c082", size: 1.55, distance: 180, speed: .04, angle: 5.2, detail: "The ringed jewel of the solar system.", fact: "Its brilliant rings are mostly water-ice particles.", texture: "/textures/saturn.jpg", ring: true, moons: [{ name: "Titan", distance: 2.75, size: .22, color: "#c7985a", speed: .19, angle: 2.1, texture: "/textures/titan.jpg" }] },
-  { name: "Uranus", color: "#82d0db", size: 1.1, distance: 220, speed: .03, angle: 1.75, detail: "A cool blue ice giant, tilted sideways.", fact: "It rotates almost on its side, unlike the other planets.", texture: "/textures/uranus.jpg" },
-  { name: "Neptune", color: "#417bd8", size: 1.08, distance: 265, speed: .02, angle: 3.85, detail: "A deep-blue world at the edge of our tour.", fact: "It has the fastest winds measured in our solar system.", texture: "/textures/neptune.jpg" },
+  { name: "Mercury", color: "#a69a8c", size: .38, distance: 34, speed: .24, angle: .2, detail: "The swiftest world, baked by the Sun.", facts: ["A year here lasts just 88 Earth days.", "Mercury has no moon.", "One solar day on Mercury lasts 176 Earth days.", "It has a giant impact basin called Caloris."], texture: "/textures/mercury.jpg" },
+  { name: "Venus", color: "#d8a85d", size: .62, distance: 54, speed: .18, angle: 2.45, detail: "A world wrapped in golden clouds.", facts: ["Its thick atmosphere makes it the hottest planet.", "Venus spins in the opposite direction to most planets.", "A Venus day is longer than a Venus year.", "Its clouds contain droplets of sulfuric acid."], texture: "/textures/venus.jpg" },
+  { name: "Earth", color: "#3987e7", size: .72, distance: 78, speed: .14, angle: .95, detail: "Our blue home, with one bright companion.", facts: ["About 71% of its surface is covered by ocean.", "Earth is the only known world with life.", "Its magnetic field helps shield us from solar wind.", "The Moon helps stabilize Earth’s tilt."], moons: [{ name: "Moon", distance: 1.4, size: .18, color: "#c9c5ba", speed: .32, angle: 1.3, texture: "/textures/moon.jpg", facts: ["The Moon always shows Earth nearly the same face.", "Its gravity causes much of Earth’s ocean tides.", "Footprints from Apollo missions can remain for a very long time."] }] },
+  { name: "Mars", color: "#c45b3e", size: .5, distance: 102, speed: .11, angle: 4.1, detail: "The rust-red frontier.", facts: ["Olympus Mons is the largest volcano in the solar system.", "Mars has seasons, dust storms, and polar ice caps.", "A Martian day is only a little longer than an Earth day.", "Its red color comes from iron-rich dust."], texture: "/textures/mars.jpg", moons: [{ name: "Phobos", distance: .9, size: .09, color: "#9e8879", speed: .44, angle: .6, texture: "/textures/phobos.jpg", facts: ["Phobos is slowly getting closer to Mars.", "It is an irregularly shaped moon with a huge crater named Stickney."] }] },
+  { name: "Jupiter", color: "#d69b70", size: 1.85, distance: 140, speed: .06, angle: 2.9, detail: "The giant planet and its stormy bands.", facts: ["Its Great Red Spot is a storm wider than Earth.", "Jupiter is the largest planet in our solar system.", "A Jupiter day lasts about 10 hours.", "It has a faint ring system and many moons."], texture: "/textures/jupiter.jpg", moons: [{ name: "Europa", distance: 2.65, size: .16, color: "#d8ccb2", speed: .28, angle: .8, texture: "/textures/europa.jpg", facts: ["Europa may hide a global ocean beneath its icy crust.", "Its cracked surface may be shaped by tides from Jupiter."] }, { name: "Ganymede", distance: 3.25, size: .24, color: "#a99b84", speed: .2, angle: 3.6, texture: "/textures/ganymede.jpg", facts: ["Ganymede is the largest moon in the solar system.", "It is even larger than the planet Mercury."] }] },
+  { name: "Saturn", color: "#e1c082", size: 1.55, distance: 180, speed: .04, angle: 5.2, detail: "The ringed jewel of the solar system.", facts: ["Its brilliant rings are mostly water-ice particles.", "Saturn is less dense than water.", "Its rings are broad but extremely thin compared with their width.", "A day on Saturn lasts only about 10.7 hours."], texture: "/textures/saturn.jpg", ring: true, moons: [{ name: "Titan", distance: 2.75, size: .22, color: "#c7985a", speed: .19, angle: 2.1, texture: "/textures/titan.jpg", facts: ["Titan has a thick atmosphere and lakes of liquid hydrocarbons.", "It is the second-largest moon in the solar system."] }] },
+  { name: "Uranus", color: "#82d0db", size: 1.1, distance: 220, speed: .03, angle: 1.75, detail: "A cool blue ice giant, tilted sideways.", facts: ["It rotates almost on its side, unlike the other planets.", "Its blue-green tint comes from methane in the atmosphere.", "Uranus has a faint system of rings.", "Its seasons can last more than 20 Earth years."], texture: "/textures/uranus.jpg" },
+  { name: "Neptune", color: "#417bd8", size: 1.08, distance: 265, speed: .02, angle: 3.85, detail: "A deep-blue world at the edge of our tour.", facts: ["It has the fastest winds measured in our solar system.", "Neptune was the first planet found through mathematical prediction.", "Its blue color comes from methane in its atmosphere.", "One year there lasts almost 165 Earth years."], texture: "/textures/neptune.jpg" },
 ];
 
 function Dust() {
@@ -161,8 +161,9 @@ function PlanetBody({ planet, selected, onSelect }: { planet: Planet; selected: 
   });
   return <group position={[Math.cos(planet.angle) * planet.distance, 0, Math.sin(planet.angle) * planet.distance]} onClick={(event) => { event.stopPropagation(); onSelect({ kind: "planet", planet }); }}>
     <group ref={body}>{planet.name === "Earth" ? <NasaEarth /> : <TexturedPlanet planet={planet} />}
+    <mesh scale={Math.max(planet.size * 3, 1.5)}><sphereGeometry args={[1, 16, 12]} /><meshBasicMaterial transparent opacity={0} depthWrite={false} /></mesh>
     {selected && <mesh scale={1.25}><sphereGeometry args={[planet.size, 32, 20]} /><meshBasicMaterial color={planet.color} transparent opacity={.1} side={THREE.BackSide} /></mesh>}
-    {planet.ring && <mesh rotation={[Math.PI / 2.45, 0, 0]}><ringGeometry args={[1.25, 1.8, 80]} /><meshBasicMaterial color="#d9c090" transparent opacity={.65} side={THREE.DoubleSide} /></mesh>}
+    {planet.ring && <mesh rotation={[Math.PI / 2.45, 0, 0]}><ringGeometry args={[planet.size * 1.55, planet.size * 2.8, 100]} /><meshBasicMaterial color="#ead7a8" transparent opacity={.56} side={THREE.DoubleSide} /></mesh>}
     {planet.moons?.map((moon) => <Moon key={moon.name} moon={moon} planet={planet} onSelect={onSelect} />)}
     </group>
   </group>;
@@ -226,19 +227,20 @@ function NavigationTrails() {
   </group>;
 }
 
-function WorldIntel({ destination }: { destination: Destination }) {
+function WorldIntel({ destination, factIndex }: { destination: Destination; factIndex: number }) {
   const { camera } = useThree();
   const card = useRef<THREE.Group>(null);
   const planet = destination.planet;
   const name = destination.kind === "moon" ? destination.moon.name : planet.name;
-  const fact = destination.kind === "moon" ? `${destination.moon.name} orbits ${planet.name}` : planet.fact;
+  const facts = destination.kind === "moon" ? destination.moon.facts ?? [`${destination.moon.name} orbits ${planet.name}.`] : planet.facts;
+  const fact = facts[factIndex % facts.length];
   useFrame(() => {
     const target = new THREE.Vector3(Math.cos(planet.angle) * planet.distance, 0, Math.sin(planet.angle) * planet.distance);
     if (destination.kind === "moon") target.add(new THREE.Vector3(Math.cos(destination.moon.angle) * destination.moon.distance, 0, -Math.sin(destination.moon.angle) * destination.moon.distance));
     const distance = camera.position.distanceTo(target);
     const cameraFacing = camera.position.clone().sub(target).normalize();
     const hologramPosition = target.clone().addScaledVector(cameraFacing, planet.size + .65).add(new THREE.Vector3(0, planet.size + 1.1, 0));
-    const scale = THREE.MathUtils.clamp(distance * .045, 1, 12);
+    const scale = THREE.MathUtils.clamp(distance * .055, 1, 16);
     card.current?.position.copy(hologramPosition);
     card.current?.scale.setScalar(scale);
   });
@@ -247,8 +249,30 @@ function WorldIntel({ destination }: { destination: Destination }) {
       <mesh position={[0, 0, -.02]} renderOrder={10}><planeGeometry args={[7.4, 2.15]} /><meshBasicMaterial color="#07142b" transparent opacity={.78} side={THREE.DoubleSide} depthTest={false} /></mesh>
       <mesh position={[0, .92, 0]} renderOrder={11}><planeGeometry args={[7.4, .035]} /><meshBasicMaterial color="#73c7ff" transparent opacity={.95} depthTest={false} /></mesh>
       <Text position={[0, .42, 0]} renderOrder={12} fontSize={.46} color="#e8f8ff" anchorX="center" anchorY="middle" letterSpacing={.1} material-depthTest={false}>{name.toUpperCase()}</Text>
-      <Text position={[0, -.35, 0]} renderOrder={12} fontSize={.18} maxWidth={6.3} lineHeight={1.35} color="#a6c8ee" anchorX="center" anchorY="middle" material-depthTest={false}>{fact}</Text>
+      <Text position={[0, -.12, 0]} renderOrder={12} fontSize={.14} color="#73c7ff" anchorX="center" anchorY="middle" material-depthTest={false}>TRIVIA {factIndex % facts.length + 1} / {facts.length} · CLICK AGAIN</Text>
+      <Text position={[0, -.55, 0]} renderOrder={12} fontSize={.18} maxWidth={6.3} lineHeight={1.35} color="#a6c8ee" anchorX="center" anchorY="middle" material-depthTest={false}>{fact}</Text>
     </Billboard>
+  </group>;
+}
+
+function VenusBriefing({ active }: { active: boolean }) {
+  const { camera } = useThree();
+  const [nearby, setNearby] = useState(false);
+  const isNearby = useRef(false);
+  const venus = planets[1];
+  const position = useMemo(() => new THREE.Vector3(Math.cos(venus.angle) * venus.distance, venus.size + 4, Math.sin(venus.angle) * venus.distance), [venus]);
+  useFrame(() => {
+    const next = active && camera.position.distanceTo(position) < 62;
+    if (next !== isNearby.current) { isNearby.current = next; setNearby(next); }
+  });
+  if (!nearby) return null;
+  return <group position={position}>
+    <mesh position={[0, 0, -.08]}><planeGeometry args={[10.2, 6.7]} /><meshBasicMaterial color="#1f0714" transparent opacity={.76} side={THREE.DoubleSide} /></mesh>
+    <Text position={[0, 3.55, 0]} fontSize={.42} color="#ffd0dd" anchorX="center">VENUS LANDING BRIEFING</Text>
+    <Text position={[0, -3.65, 0]} fontSize={.16} color="#e38aa9" anchorX="center">OFFICIAL YOUTUBE SHORT · CLICK PLAYER TO WATCH</Text>
+    <Html transform distanceFactor={18} position={[0, -.18, .03]} style={{ width: "432px", height: "520px", pointerEvents: "auto" }}>
+      <div className={styles.venusVideo}><iframe title="Venus landing briefing via YouTube" width="432" height="480" src="https://www.youtube.com/embed/Q08sUKBByI4?playsinline=1&rel=0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowFullScreen /></div>
+    </Html>
   </group>;
 }
 
@@ -313,7 +337,7 @@ function ShipHeadlight() {
   return <pointLight ref={light} color="#cce8ff" intensity={42} distance={65} decay={1.35} />;
 }
 
-function SolarSystem({ selected, onSelect, mode, onRange }: { selected: Destination; onSelect: (destination: Destination) => void; mode: "ship" | "map"; onRange: (range: number) => void }) {
+function SolarSystem({ selected, onSelect, mode, onRange, factIndex }: { selected: Destination; onSelect: (destination: Destination) => void; mode: "ship" | "map"; onRange: (range: number) => void; factIndex: number }) {
   return <Canvas camera={{ position: [0, 3, 16], fov: 62, near: .01 }} dpr={[1, 1.75]} gl={{ antialias: true }}>
     <color attach="background" args={["#02030b"]} />
     <fog attach="fog" args={["#02030b", 80, 470]} />
@@ -327,7 +351,8 @@ function SolarSystem({ selected, onSelect, mode, onRange }: { selected: Destinat
     <Sun />
     <NavigationTrails />
     <Suspense fallback={null}>{planets.map((planet) => <PlanetBody key={planet.name} planet={planet} selected={selected.planet.name === planet.name} onSelect={onSelect} />)}</Suspense>
-    <WorldIntel destination={selected} />
+    <WorldIntel destination={selected} factIndex={factIndex} />
+    <VenusBriefing active={selected.kind === "planet" && selected.planet.name === "Venus"} />
     {mode === "ship" ? <><ShipHeadlight /><GuidanceTrail destination={selected} /><ShipControls target={selected} onRange={onRange} /></> : <MapControls />}
   </Canvas>;
 }
@@ -356,14 +381,22 @@ export default function Home() {
   const [selected, setSelected] = useState<Destination>({ kind: "planet", planet: planets[2] });
   const [mode, setMode] = useState<"ship" | "map">("ship");
   const [range, setRange] = useState(0);
+  const [factIndex, setFactIndex] = useState(0);
   const selectedName = selected.kind === "moon" ? selected.moon.name : selected.planet.name;
   const selectedDetail = selected.kind === "moon" ? `${selected.moon.name} travels around ${selected.planet.name}.` : selected.planet.detail;
-  const selectedFact = selected.kind === "moon" ? `${selected.moon.name} is currently in orbit around ${selected.planet.name}.` : selected.planet.fact;
+  const selectedFacts = selected.kind === "moon" ? selected.moon.facts ?? [`${selected.moon.name} is currently in orbit around ${selected.planet.name}.`] : selected.planet.facts;
+  const selectedFact = selectedFacts[factIndex % selectedFacts.length];
+  const selectOrCycleFact = (destination: Destination) => {
+    const sameMoon = destination.kind === "moon" && selected.kind === "moon" && destination.moon.name === selected.moon.name;
+    const samePlanet = destination.kind === "planet" && selected.kind === "planet" && destination.planet.name === selected.planet.name;
+    if (sameMoon || samePlanet) setFactIndex((index) => index + 1);
+    else { setSelected(destination); setFactIndex(0); }
+  };
   return <main className={styles.page}>
-    <section className={styles.scene}><SolarSystem selected={selected} onSelect={setSelected} mode={mode} onRange={setRange} /></section>
+    <section className={styles.scene}><SolarSystem selected={selected} onSelect={selectOrCycleFact} mode={mode} onRange={setRange} factIndex={factIndex} /></section>
     <header className={styles.topbar}><div className={styles.brand}><span className={styles.brandMark}>✦</span><div><b>ORBITAL EXPLORER</b><small>LOCAL STAR SYSTEM</small></div></div><div className={styles.coordinates}>LIVE NAVIGATION<br />DRAG TO ORBIT · SCROLL TO ZOOM</div></header>
     <ShipMusic />
-    <aside className={styles.panel}><div className={styles.eyebrow}>DESTINATION SELECTED</div><h1>{selectedName}</h1><p>{selectedDetail}</p><div className={styles.planetList}>{planets.map((planet) => <button key={planet.name} className={`${styles.planetButton} ${selected.planet.name === planet.name ? styles.active : ""}`} style={{ "--planet-color": planet.color } as React.CSSProperties} onClick={() => { setMode("ship"); setSelected({ kind: "planet", planet }); }}>{planet.name}</button>)}</div><div className={styles.controls}><button onClick={() => setMode(mode === "ship" ? "map" : "ship")}>{mode === "ship" ? "VIEW SYSTEM MAP" : "ENTER SHIP"}</button><button onClick={() => { setMode("ship"); setSelected({ kind: "planet", planet: planets[2] }); }}>RETURN TO EARTH</button></div></aside>
+    <aside className={styles.panel}><div className={styles.eyebrow}>DESTINATION SELECTED</div><h1>{selectedName}</h1><p>{selectedDetail}</p><div className={styles.planetList}>{planets.map((planet) => <button key={planet.name} className={`${styles.planetButton} ${selected.planet.name === planet.name ? styles.active : ""}`} style={{ "--planet-color": planet.color } as React.CSSProperties} onClick={() => { setMode("ship"); selectOrCycleFact({ kind: "planet", planet }); }}>{planet.name}</button>)}</div><div className={styles.controls}><button onClick={() => setMode(mode === "ship" ? "map" : "ship")}>{mode === "ship" ? "VIEW SYSTEM MAP" : "ENTER SHIP"}</button><button onClick={() => { setMode("ship"); selectOrCycleFact({ kind: "planet", planet: planets[2] }); }}>RETURN TO EARTH</button></div></aside>
     <div className={styles.hint}>{mode === "ship" ? <><b>Click canvas to enter cockpit</b><br />WASD / ARROWS: FLY · SHIFT: BOOST</> : <><b>SYSTEM MAP</b><br />DRAG TO ORBIT · SCROLL TO ZOOM</>}</div>
     {mode === "ship" && <div className={styles.cockpit} aria-hidden="true">
       <div className={styles.canopyTop} /><div className={styles.canopyLeft} /><div className={styles.canopyRight} />
